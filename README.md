@@ -20,3 +20,4 @@ Runs **FinBERT-tone** (`yiyanghkust/finbert-tone`) financial-sentiment analysis 
 - **Cheap repeat runs**: the pip cache plus an `actions/cache` entry for `~/.cache/huggingface` (key `finbert-tone-model-v1`) mean later runs skip both the package downloads and the model download.
 - **CPU only**: `requirements.txt` pulls torch from the PyTorch CPU wheel index (via `--extra-index-url https://download.pytorch.org/whl/cpu`).
 - **English only**: FinBERT-tone was fine-tuned on English financial text. Arabic headlines must be translated before scoring (the pilot headlines are English renderings of Arabic news items).
+- **Old-config workaround**: `yiyanghkust/finbert-tone` (last modified 2022) ships a `config.json` with no `model_type` key, so modern transformers rejects it via `AutoConfig` / a plain pipeline. The script loads the raw config, injects `model_type: "bert"`, and builds `BertForSequenceClassification` / `BertTokenizer` explicitly.
