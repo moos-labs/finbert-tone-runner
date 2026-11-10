@@ -49,16 +49,28 @@ def main():
     parser.add_argument("--label", default="run")
     args = parser.parse_args()
 
-    from transformers import pipeline, AutoConfig
-    config = AutoConfig.from_pretrained(MODEL_ID)
-    id2label = {int(k): str(v) for k, v in getattr(config, "id2label", {}).items()}
+    # yiyanghkust/finbert-tone ships an old config.json with NO model_type
+    # key, so AutoConfig / a plain pipeline(model=MODEL_ID) fails on modern
+    # transformers with "Should have a `model_type` key". Load the raw
+    # config, inject model_type='bert', and build the BERT classes
+    # explicitly instead.
+    import json as _json
+    from huggingface_hub import hf_hub_download
+    from transformers import pipeline, BertConfig, BertForSequenceClassification, BertTokenizer
+    cfg_path = hf_hub_download(MODEL_ID, "config.json")
+    raw_cfg = _json.loads(Path(cfg_path).read_text(encoding="utf-8"))
+    id2label = {int(k): str(v) for k, v in raw_cfg.get("id2label", {}).items()}
+    raw_cfg.setdefault("model_type", "bert")
+    config = BertConfig.from_dict(raw_cfg)
     print(f"Model: {MODEL_ID}")
     print(f"id2label: {id2label}")
 
     texts = load_texts(Path(args.input))
     if not texts:
         raise SystemExit("No texts found in input.")
-    clf = pipeline("sentiment-analysis", model=MODEL_ID, top_k=None, device=-1)
+    model = BertForSequenceClassification.from_pretrained(MODEL_ID, config=config)
+    tokenizer = BertTokenizer.from_pretrained(MODEL_ID)
+    clf = pipeline("sentiment-analysis", model=model, tokenizer=tokenizer, top_k=None, device=-1)
     raw_outputs = clf(texts)
 
     items = []
